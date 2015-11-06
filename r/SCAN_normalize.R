@@ -30,5 +30,5 @@ SCANwrap<-function(GSM, CELfiles, outDir){
 
 GSMlist<-unique(clinical$sampGEO)
 
-lapply(GSMlist, SCANwrap, CELfiles, file.path(dirFormat, "SCAN_normalized"))
+lapply(GSMlist[86:length(GSMlist)], SCANwrap, CELfiles, file.path(dirFormat, "SCAN_normalized"))
 
