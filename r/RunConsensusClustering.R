@@ -19,7 +19,7 @@ DGEsig<-DGEout[DGEout$FDR<=0.05,]
 #[1] 0.584962
 
 DGEkeep<-DGEsig[abs(DGEsig$beta_copdyes)>0.3219281,]
-#This remove all results but a few, instead we will keep genes with FDR < 0.0.05
+#This remove all results but a few, instead we will keep genes with FDR < 0.05
 
 DGEsig<-DGEout[DGEout$FDR<=0.05,]
 
@@ -82,6 +82,9 @@ hist(IC2$max, breaks = 100)
 
 #Remove genes with max consensus less than 0.98
 ICkeep<-IC2[IC2$max>0.98,]
+
+ICkeep$G<-apply(ICkeep[,1:2], 1, which.max)
+
 exprTrim<-exprMat[row.names(exprMat)%in%row.names(ICkeep),]
 
 
@@ -101,7 +104,7 @@ colnames(IC3)<-c("C1", "C2", "C3")
 
 IC3$max<-apply(IC3, 1, which.max)
 
-save(resultsGene, iclGene, resultsSample, iclSample,IC3, IC2,exprMat, exprTrim, file = "ConClustResults.RData")
+save(resultsGene, iclGene, resultsSample, iclSample,IC3,ICkeep, IC2,exprMat, exprTrim, file = "ConClustResults.RData")
 
 
 
