@@ -1,5 +1,5 @@
 require(parallel)
-# Run DGE using LM
+# Run Goldfeld-Quandt Test using LM
 
 # Set Base directory
 baseDir<-"/Users/ericreed/Google Drive/COPD_project/FormattedData"
@@ -28,36 +28,38 @@ print(sum(is.na(pheno)))
 pheno$copd<-factor(pheno$copd, levels = c("no", "yes"))
 pheno$sex<-factor(pheno$sex)
 pheno$smoking<-factor(pheno$smoking)
-pheno$asthma<-factor(pheno$asthma)
-pheno$inhaledMedications<-factor(pheno$inhaledMedications)
 
 str(pheno)
 
-#Create function to create linear model
-###gene expression = copd + age + sex + smoking + asthma + inhaledMedications
-
-expLM<-function(gene){
+expGQ<-function(gene){
   exprGene<-as.data.frame(t(expr[row.names(expr)==gene,]))
   colnames(exprGene)<-"expr"
   exprGene$sampGEO<-row.names(exprGene)
   
   phenoSub<-merge(exprGene, pheno)
   
-  lmOut<-summary(lm(expr ~ copd + age + sex + smoking, data = phenoSub))
-
-  coefOut<-lmOut$coefficients["copdyes",]
-  return(coefOut)}
+  lmCOPD<-lm(expr ~ age + sex + smoking, data = phenoSub[phenoSub$copd=="yes",])
+  lmControl<-lm(expr ~ age + sex + smoking, data = phenoSub[phenoSub$copd=="no",])
+  
+  copdSSR<-sum(lmCOPD$residuals^2)
+  contSSR<-sum(lmControl$residuals^2)
+  
+  d1<-(nrow(phenoSub[phenoSub$copd=="yes",])-lmCOPD$rank)
+  d2<-(nrow(phenoSub[phenoSub$copd=="no",])-lmControl$rank)
+  
+  GQ<-(copdSSR/d1)/(contSSR/d2)
+  
+  GQp<-pf(GQ, d1, d2, lower.tail = FALSE)
+    
+  FtestOut<-data.frame(gene = gene, d1 = d1, d2 = d2, GQ = GQ, GQp = GQp)
+    
+  return(FtestOut)}
 
 #Run in parallel of course
 geneVec<-row.names(expr)
-DGEout<-mclapply(geneVec, expLM, mc.cores = 4)
+Fout<-mclapply(geneVec, expGQ, mc.cores = 4)
+Ffram<-as.data.frame(do.call(rbind, Fout))
+colnames(Ffram)<-c("gene", "d1", "d2", "GQ", "GQp")
 
-DGEfram<-as.data.frame(do.call(rbind, DGEout))
-DGEfram$gene<-geneVec
-
-DGEfram<-DGEfram[,c("gene", "Estimate", "Std. Error", "t value", "Pr(>|t|)")]
-colnames(DGEfram)<-c("gene", "beta_copdyes","se", "testStat", "pvalue")
-
-write.table(DGEfram, file.path(baseDir, "COPD_DGEresults.txt"), row.names = FALSE, col.names = TRUE)
-
-  
+#Write table of differential variance results
+write.table(Ffram, file.path(baseDir, "COPD_DiffVarResults.txt"), row.names = FALSE, col.names = TRUE)

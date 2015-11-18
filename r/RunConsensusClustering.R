@@ -1,29 +1,12 @@
 require(ConsensusClusterPlus)
 require(tidyr)
+require(Biobase)
 
 #Get list of DGE genes
 baseDir<-"/Users/ericreed/Google Drive/COPD_project/FormattedData"
-
-
 #Read in DGE file
-DGEout<-read.table(file.path(baseDir, "COPD_DGEresults.txt"), header=T)
+DGEout<-read.table(file.path(baseDir, "GeneFil_Results.txt"), header=T)
 
-#Get FDR adjusted p-values
-DGEout$FDR<-p.adjust(DGEout$pvalue, method = "BH")
-
-#Get list of FDR < 0.05
-DGEsig<-DGEout[DGEout$FDR<=0.05,]
-
-#Subset list for fold change > 1.5
-#log(1.25, 2)
-#[1] 0.584962
-
-DGEkeep<-DGEsig[abs(DGEsig$beta_copdyes)>0.3219281,]
-#This remove all results but a few, instead we will keep genes with FDR < 0.05
-
-DGEsig<-DGEout[DGEout$FDR<=0.05,]
-
-#This keeps around 2331 genes for clustering. 
 
 # Read in SCAN normalized expression matrix
 expr<-read.table(file.path(baseDir, "NormalizedExpMat.txt"), stringsAsFactors = FALSE, header = T)
@@ -42,8 +25,8 @@ exprCOPD<-expr[,colnames(expr)%in%COPDid]
 exprCOPD<-exprCOPD[row.names(exprCOPD)%in%DGEsig$gene,]
 
 # Filter for genes with high variability
-#mads <- apply(exprCOPD,1,mad)
-#exprCOPD<-exprCOPD[rev(order(mads))[1:2000],]
+mads <- apply(exprCOPD,1,mad)
+exprCOPD <- exprCOPD[rev(order(mads))[1:2000],]
 
 exprMat<-as.matrix(exprCOPD)
 
@@ -65,49 +48,55 @@ resultsGene = ConsensusClusterPlus(t(exprMat), maxK=10,reps=1000,pItem=0.8,pFeat
 
 iclGene = calcICL(resultsGene)
 
-#Clearly two samples is best
-#We can trim the gene list to highest consensus
+ICgene<-iclGene$itemConsensus
 
-IC<-iclGene$itemConsensus
-IC2<-IC[IC$k==2,]
-
-IC2<-spread(IC2, cluster, itemConsensus)
-
-row.names(IC2)<-IC2$item
-IC2<-IC2[,!colnames(IC2)%in%c("k", "item")]
-colnames(IC2)<-c("C1", "C2")
-IC2$max<-apply(IC2, 1, max)
-
-hist(IC2$max, breaks = 100)
-
-#Remove genes with max consensus less than 0.98
-ICkeep<-IC2[IC2$max>0.98,]
-
-ICkeep$G<-apply(ICkeep[,1:2], 1, which.max)
-
-exprTrim<-exprMat[row.names(exprMat)%in%row.names(ICkeep),]
+write.table(ICgene, file.path(baseDir, "GeneConClust_Results.txt"), col.names = T, row.names = F)
 
 
-resultsSample = ConsensusClusterPlus(exprTrim, maxK=10,reps=1000,pItem=0.8,pFeature=1,clusterAlg="hc",distance="pearson",seed=1, title = "sample-level", plot = "png")
+resultsSample = ConsensusClusterPlus(exprMat, maxK=10,reps=1000,pItem=0.8,pFeature=1,clusterAlg="hc",distance="pearson",seed=1, title = "sample-level", plot = "png")
+
 iclSample = calcICL(resultsSample)
 
-#Three cluster is the way to go.  The third is only two samples large
+ICsample<-iclSample$itemConsensus
 
-IC3<-iclSample$itemConsensus
+write.table(ICsample, file.path(baseDir, "SampleConClust_Results.txt"), col.names = T, row.names = F)
 
-IC3<-IC3[IC3$k==3,]
-IC3<-spread(IC3, cluster, itemConsensus)
-
-row.names(IC3)<-IC3$item
-IC3<-IC3[,!colnames(IC3)%in%c("k", "item")]
-colnames(IC3)<-c("C1", "C2", "C3")
-
-IC3$max<-apply(IC3, 1, which.max)
-
-save(resultsGene, iclGene, resultsSample, iclSample,IC3,ICkeep, IC2,exprMat, exprTrim, file = "ConClustResults.RData")
+save(resultsGene, iclGene, resultsSample, iclSample, exprCOPD,exprMat, file = "ConClustResults.RData")
 
 
+#Qualitative assessment 
 
+#Genes -- k=5
+geneClust<-ICgene[ICgene$k==5,]
+geneClust<-spread(geneClust, cluster, itemConsensus)
+row.names(geneClust)<-geneClust$item
+geneClust<-geneClust[, !colnames(geneClust)%in% c("k", "item") ]
+
+#Assign cluster to genes
+cluster<-apply(geneClust, 1, which.max)
+maxes<-apply(geneClust, 1, max)
+sums<-rowSums(geneClust)
+
+geneClust$cluster<-cluster
+geneClust$prop.max<-maxes/sums
+
+write.table(geneClust, file.path(baseDir, "GeneK5_clusters.txt"), row.names = TRUE, col.names = TRUE, quote = FALSE)
+
+#Samples -- k=3
+sampClust<-ICsample[ICsample$k==3,]
+sampClust<-spread(sampClust, cluster, itemConsensus)
+row.names(sampClust)<-sampClust$item
+sampClust<-sampClust[, !colnames(sampClust)%in% c("k", "item") ]
+
+#Assign cluster to samps
+cluster<-apply(sampClust, 1, which.max)
+maxes<-apply(sampClust, 1, max)
+sums<-rowSums(sampClust)
+
+sampClust$cluster<-cluster
+sampClust$prop.max<-maxes/sums
+
+write.table(sampClust, file.path(baseDir, "sampK3_clusters.txt"), row.names = TRUE, col.names = TRUE, quote = FALSE)
 
 
 
