@@ -12,7 +12,7 @@ samples<-read.table(file.path(baseDir, "clinical.txt"), sep="\t", header = TRUE,
 samples<-samples[samples$included=="yes",]
 
 # Adjust for these covariates
-pheno<-samples[, c("sampGEO", "copd", "age", "sex", "smoking", "fev1", "fev1.fvc")]
+pheno<-samples[, c("sampGEO", "copd", "age", "sex", "smoking", "fev1", "fev1.fvc", "asthma", "inhaledMedications")]
 
 pheno<-pheno[!(pheno$fev1<80 & pheno$fev1.fvc>70),]
 

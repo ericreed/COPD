@@ -23,12 +23,16 @@ Fout<-read.table(file.path(inDirF, "COPD_DiffVarResults.txt"), header=T)
 # Get FDR adjusted p-values
 Fout$FDR_F<-p.adjust(Fout$GQp, method = "BH")
 # Get list of FDR < 0.05
-Fsig<-Fout[Fout$FDR_F<=0.1,]
-# 397 genes have different variances FDR <0.1
+Fsig<-Fout[Fout$GQp<=0.05,]
+# 19697 genes raw p-value < 0.05
 
 Genelist<-merge(DGEsig, Fsig)
 # Only 145 are differenitally expressed and have larger 
 
 # We will use just raw DGE FDR < 0.05. 
 write.table(DGEsig, file.path(outDir, "GeneFil_Results.txt"), row.names=F)
+
+
+# We will use Fstat and DGE p-values.
+write.table(Genelist, file.path(outDir, "GeneFil_Results_HigherVar.txt"), row.names=F)
 
