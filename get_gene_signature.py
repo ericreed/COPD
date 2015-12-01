@@ -109,24 +109,33 @@ def get_gene_sig(sample_cluster_file, gene_file, norm_expr_file, g):
             gene_freq_per_cluster[c][gene] = gene_freq_per_cluster[c].get(gene, 0) + 1
     
     # sort the most frequence genes in each cluster
-    top_cluster_genes = []  # initialize a list of tuples to hold the gene, frequency pairs
+    top_cluster_genes = []  # initialize a list of tuples to hold the top genes in a cluster
     for c in range(cluster_number):
         top_genes = [(gene, gene_freq_per_cluster[c][gene]) for gene in sorted(gene_freq_per_cluster[c], key=gene_freq_per_cluster[c].get, reverse = True)]
         top_cluster_genes.append([gene_tuple[0] for gene_tuple in top_genes])
-    
+        
+    # determine a set of banned genes (patent pending) that appear in more than 1 cluster consensus top 200 (via intersection)
+    banned_gene_set = set()
+    for c in range(cluster_number):
+        for q in range(cluster_number):
+            if c != q: # clusters are not being compared to themselves
+                for x in range(len(top_cluster_genes[c])):
+                    for y in range(len(top_cluster_genes[q])):
+                        if top_cluster_genes[c][x] == top_cluster_genes[q][y]:
+                            if abs(x-y) < 10: # makes sure each gene is at least ranked 10 positions away in different clusters
+                                banned_gene_set.add(top_cluster_genes[c][x]) # ban that sick filth
+                                
     # determine the unique gene signatures based on the top cluster genes previously determined
     gene_sigs = []
     for c in range(cluster_number):
         gene_sigs.append([])
-    used_gene_set = set()
     for x in range(g):
         for c in range(cluster_number):
-            if top_cluster_genes[c][x] not in used_gene_set:
-                used_gene_set.add(top_cluster_genes[c][x])
+            if top_cluster_genes[c][x] not in banned_gene_set:
                 gene_sigs[c].append(top_cluster_genes[c][x])
                 
     # determine the minimum number of genes in a gene signature
-    min_number = 10000
+    min_number = 10000 # use arbitrary high number that will be replaced
     for c in range(cluster_number):
         if len(gene_sigs[c]) < min_number:
             min_number = len(gene_sigs[c])
@@ -138,7 +147,7 @@ def get_gene_sig(sample_cluster_file, gene_file, norm_expr_file, g):
 
 
 def print_sigs_to_file(gene_sigs, dir_path, g):
-    o = open(dir_path + "sample_cluster_gene_sigs_TEST.txt", 'w')
+    o = open(dir_path + "sample_cluster_gene_sigs_v2.txt", 'w')
     header = ""   
     for i in range(len(gene_sigs)):
         header += str(i+1) + '\t'
